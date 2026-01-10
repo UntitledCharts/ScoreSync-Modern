@@ -60,7 +60,7 @@ jobs:
 
       - name: Build zipapp
         shell: pwsh
-        run: python -m zipapps -c -a main.py,app.py,helpers,routes,site-packages -o app.pyz -d -m main:main
+        run: python -m zipapps -c -a main.py,app.py,helpers,routes,assets,site-packages -o app.pyz -d -m main:main
 
       - name: Generate run.bat
         shell: pwsh
