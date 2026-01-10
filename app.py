@@ -19,7 +19,7 @@ from helpers.levels import load_levels_directory
 
 # CONSTANTS
 PORT = 3939
-DEBUG = True
+DEBUG = False
 SONOLUS_VERSION = "1.0.2"
 BACKGROUND_VERSION = "v3"  # v3, v1
 
@@ -110,7 +110,7 @@ async def startup_event():
     app.files["bg_config"] = helpers.repository.repo.add_file(
         RELATIVE_PATH / "assets/background/configuration"
     )
-    app.files["bg_data"] = helpers.repository.repo.add_file("assets/background/data")
+    app.files["bg_data"] = helpers.repository.repo.add_file(RELATIVE_PATH / "assets/background/data")
     app.files["engine_watch"] = helpers.repository.repo.add_file(
         RELATIVE_PATH / "assets/engine/EngineWatchData"
     )
@@ -184,7 +184,7 @@ async def start_fastapi():
         port=PORT,
         workers=1,
         access_log=DEBUG,
-        log_level="critical" if not DEBUG else None,
+        log_level="error" if not DEBUG else None,
     )
     server = uvicorn.Server(config_server)
     await server.serve()
