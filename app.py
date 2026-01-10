@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import psutil
 import socket
+import ipaddress
 from typing import List
 
 from pathlib import Path
@@ -27,11 +28,17 @@ RELATIVE_PATH = Path(__file__).parent
 
 
 def get_local_ipv4() -> List[str]:
-    addresses = []
+    addresses: list[str] = []
 
     for iface_addrs in psutil.net_if_addrs().values():
         for addr in iface_addrs:
-            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+            if addr.family != socket.AF_INET:
+                continue
+
+            ip = ipaddress.ip_address(addr.address)
+
+            # keep only real LAN addresses
+            if ip.is_private and not ip.is_loopback and not ip.is_link_local:
                 addresses.append(addr.address)
 
     return addresses if addresses else ["localhost"]
