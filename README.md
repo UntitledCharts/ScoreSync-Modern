@@ -9,7 +9,7 @@ Supported files include:
 
 1. Download release.zip from the [releases](https://github.com/Piliman22/ScoreSync/releases) page and extract it.
 
-2. Create a new folder (with any name) inside the levels directory, and add a .sus/.usc/LevelData/.mmw/.ccmmw/.unchmmw file, a .mp3, and a .png file into it.
+2. Create a new folder (with any name) inside the levels directory, and add a .sus/.usc/LevelData/.mmws/.ccmmws/.unchmmws file, a .mp3, and a .png file into it.
 
 3. Launch `run.bat`.
 
@@ -36,7 +36,7 @@ Sonolus上のデータも自動的に更新されます。
 1. [リリース](https://github.com/Piliman22/ScoreSync/releases)から、release.zipをダウンロードし、展開してください。
 
 2. levelsの中に新しいフォルダ（名前は自由に）を作成し、その中に
-譜面ファイル（.sus / .usc / LevelData / .mmw / .ccmmw / .unchmmw のいずれか1つ）、
+譜面ファイル（.sus / .usc / LevelData / .mmws / .ccmmws / .unchmmws のいずれか1つ）、
 音声ファイル（.mp3）、画像ファイル（.png） を追加してください。
 
 3. `run.bat`を起動してください。
