@@ -5,6 +5,8 @@ import psutil
 import socket
 from typing import List
 
+from pathlib import Path
+
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, Request
@@ -20,6 +22,8 @@ PORT = 3939
 DEBUG = False
 SONOLUS_VERSION = "1.0.2"
 BACKGROUND_VERSION = "v3"  # v3, v1
+
+RELATIVE_PATH = Path(__file__).parent
 
 
 def get_local_ipv4() -> List[str]:
@@ -97,42 +101,54 @@ async def startup_event():
 
     import helpers.repository
 
-    app.files["banner"] = helpers.repository.repo.add_file("assets/banner.png")
-    app.files["thumbnail"] = helpers.repository.repo.add_file("assets/thumbnail.png")
+    app.files["banner"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/banner.png"
+    )
+    app.files["thumbnail"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/thumbnail.png"
+    )
     app.files["bg_config"] = helpers.repository.repo.add_file(
-        "assets/background/configuration"
+        RELATIVE_PATH / "assets/background/configuration"
     )
     app.files["bg_data"] = helpers.repository.repo.add_file("assets/background/data")
     app.files["engine_watch"] = helpers.repository.repo.add_file(
-        "assets/engine/EngineWatchData"
+        RELATIVE_PATH / "assets/engine/EngineWatchData"
     )
     app.files["engine_play"] = helpers.repository.repo.add_file(
-        "assets/engine/EnginePlayData"
+        RELATIVE_PATH / "assets/engine/EnginePlayData"
     )
     app.files["engine_preview"] = helpers.repository.repo.add_file(
-        "assets/engine/EnginePreviewData"
+        RELATIVE_PATH / "assets/engine/EnginePreviewData"
     )
     app.files["engine_rom"] = helpers.repository.repo.add_file(
-        "assets/engine/EngineRom"
+        RELATIVE_PATH / "assets/engine/EngineRom"
     )
     app.files["engine_tut"] = helpers.repository.repo.add_file(
-        "assets/engine/EngineTutorialData"
+        RELATIVE_PATH / "assets/engine/EngineTutorialData"
     )
     app.files["engine_config"] = helpers.repository.repo.add_file(
-        "assets/engine/EngineConfiguration"
+        RELATIVE_PATH / "assets/engine/EngineConfiguration"
     )
     app.files["bg_image"] = helpers.repository.repo.add_file(
-        "assets/background/image.png"
+        RELATIVE_PATH / "assets/background/image.png"
     )
-    app.files["sfx_audio"] = helpers.repository.repo.add_file("assets/effect/audio")
-    app.files["sfx_data"] = helpers.repository.repo.add_file("assets/effect/data")
-    app.files["skin_texture"] = helpers.repository.repo.add_file("assets/skin/texture")
-    app.files["skin_data"] = helpers.repository.repo.add_file("assets/skin/data")
+    app.files["sfx_audio"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/effect/audio"
+    )
+    app.files["sfx_data"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/effect/data"
+    )
+    app.files["skin_texture"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/skin/texture"
+    )
+    app.files["skin_data"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/skin/data"
+    )
     app.files["particle_texture"] = helpers.repository.repo.add_file(
-        "assets/particle/texture"
+        RELATIVE_PATH / "assets/particle/texture"
     )
     app.files["particle_data"] = helpers.repository.repo.add_file(
-        "assets/particle/data"
+        RELATIVE_PATH / "assets/particle/data"
     )
 
     load_levels_directory(BACKGROUND_VERSION)
