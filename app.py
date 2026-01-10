@@ -179,7 +179,7 @@ async def background_loader(app: SonolusFastAPI):
 
 async def start_fastapi():
     config_server = uvicorn.Config(
-        "app:app",
+        app,
         host="0.0.0.0",
         port=PORT,
         workers=1,
