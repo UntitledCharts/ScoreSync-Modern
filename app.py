@@ -19,7 +19,7 @@ from helpers.levels import load_levels_directory
 
 # CONSTANTS
 PORT = 3939
-DEBUG = False
+DEBUG = True
 SONOLUS_VERSION = "1.0.2"
 BACKGROUND_VERSION = "v3"  # v3, v1
 
