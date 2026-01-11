@@ -1,5 +1,4 @@
 import asyncio, traceback
-from contextlib import asynccontextmanager
 
 import psutil
 import socket
@@ -166,24 +165,17 @@ async def startup_event():
     ips = get_local_ipv4()
     for ip in ips:
         print(f"Go to server https://open.sonolus.com/{ip}:{PORT}/")
+    asyncio.create_task(background_loader(app))
 
 
 app.add_event_handler("startup", startup_event)
 # uvicorn.run("app:app", port=port, host="0.0.0.0")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    app.state.levels = {}
-    task = asyncio.create_task(background_loader(app))
-    yield
-    task.cancel()
-
-
 async def background_loader(app: SonolusFastAPI):
     while True:
         await app.run_blocking(load_levels_directory, BACKGROUND_VERSION)
-        await asyncio.sleep(3)
+        await asyncio.sleep(0.1)
 
 
 async def start_fastapi():
