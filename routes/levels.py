@@ -15,6 +15,22 @@ async def main(request: Request, item_type: ItemType):
     page_items = items[:20]
 
     converted_data = [create_level_item(request, i[1], i[0]) for i in page_items]
+    for item in converted_data:
+        if item["cover"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.png/.jpg/.jpeg???\n/levels/{item['title']}",
+            )
+        if item["bgm"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.mp3/.ogg???\n/levels/{item['title']}",
+            )
+        if item["data"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.sus/.usc/LevelData/.json/.gz/.mmws/.ccmmws/.unchmmws???\n/levels/{item['title']}",
+            )
     data = {
         "sections": [{"title": "#LEVEL", "itemType": "level", "items": converted_data}]
     }
@@ -38,6 +54,21 @@ async def main(request: Request, item_type: ItemType):
     page_items = items[start:end]
 
     converted_data = [create_level_item(request, i[1], i[0]) for i in page_items]
-
+    for item in converted_data:
+        if item["cover"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.png/.jpg/.jpeg???\n/levels/{item['title']}",
+            )
+        if item["bgm"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.mp3/.ogg???\n/levels/{item['title']}",
+            )
+        if item["data"] == None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"\n\n.sus/.usc/LevelData/.json/.gz/.mmws/.ccmmws/.unchmmws???\n/levels/{item['title']}",
+            )
     data = {"pageCount": page_count, "items": converted_data}
     return data

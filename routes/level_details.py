@@ -19,8 +19,26 @@ async def main(request: Request, item_type: ItemType, item_name: str):
     if not found_level_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
+    item = create_level_item(request, found_level_data[1], found_level_data[0])
+
+    if item["cover"] == None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"\n\n.png/.jpg/.jpeg???\n/levels/{found_level_data[0]}",
+        )
+    if item["bgm"] == None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"\n\n.mp3/.ogg???\n/levels/{found_level_data[0]}",
+        )
+    if item["data"] == None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"\n\n.sus/.usc/LevelData/.json/.gz/.mmws/.ccmmws/.unchmmws???\n/levels/{found_level_data[0]}",
+        )
+
     data = {
-        "item": create_level_item(request, found_level_data[1], found_level_data[0]),
+        "item": item,
         "actions": [],
         "hasCommunity": False,
         "leaderboards": [],
