@@ -117,7 +117,9 @@ async def startup_event():
     app.files["bg_config"] = helpers.repository.repo.add_file(
         RELATIVE_PATH / "assets/background/configuration"
     )
-    app.files["bg_data"] = helpers.repository.repo.add_file(RELATIVE_PATH / "assets/background/data")
+    app.files["bg_data"] = helpers.repository.repo.add_file(
+        RELATIVE_PATH / "assets/background/data"
+    )
     app.files["engine_watch"] = helpers.repository.repo.add_file(
         RELATIVE_PATH / "assets/engine/EngineWatchData"
     )

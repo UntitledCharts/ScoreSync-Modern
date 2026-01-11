@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+import uuid
 import traceback
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -18,17 +19,30 @@ from helpers.repository import repo
 
 
 # -----------------------------
-# Folder name normalization
+# Score handling (single pass)
 # -----------------------------
 
+_SCORE_EXTS = {
+    ".sus",
+    ".usc",
+    ".json",
+    ".gz",
+    ".mmws",
+    ".ccmmws",
+    ".unchmmws",
+    "",  # NO EXTENSION
+}
 
-def normalize_folder_name(name: str) -> str:
-    return "".join(c for c in name if c.isalnum() or c in "-_")
 
-
-# -----------------------------
-# Score handling (merged)
-# -----------------------------
+def _is_candidate_score_file(path: Path) -> bool:
+    """
+    Only consider these extensions for chart/score files:
+      sus, usc, .json, .gz, .mmws, .ccmmws, .unchmmws, NO EXTENSION
+    """
+    if not path.is_file():
+        return False
+    # suffix includes the dot; for no-extension it's ""
+    return path.suffix.lower() in _SCORE_EXTS
 
 
 def convert_score_to_cache(score_path: Path, out_path_no_ext: Path) -> bool:
@@ -39,16 +53,18 @@ def convert_score_to_cache(score_path: Path, out_path_no_ext: Path) -> bool:
     Special cases for lvd:
       - ("lvd", "compress_pysekai") -> write raw bytes as-is (already compressed)
       - ("lvd", "pysekai")          -> gzip the raw bytes and write to out_path_no_ext
+
+    IMPORTANT: opens score file in read mode (file object), not read_bytes().
     """
     out_path_no_ext.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        data = score_path.read_bytes()
+        with score_path.open("rb") as f:
+            data = f.read()
     except Exception as e:
         print("".join(traceback.format_exception(e, e, e.__traceback__)))
         return False
 
-    # Standardize detect() to bytes
     try:
         detection = sonolus_converters.detect(data)
     except Exception as e:
@@ -62,21 +78,24 @@ def convert_score_to_cache(score_path: Path, out_path_no_ext: Path) -> bool:
         kind = detection[0]
 
         if kind == "sus":
-            score = sonolus_converters.sus.load(score_path.open("r"))
+            with score_path.open("r") as fp:
+                score = sonolus_converters.sus.load(fp)
             sonolus_converters.LevelData.next_sekai.export(
                 out_path_no_ext, score, as_compressed=True
             )
             return True
 
         if kind == "mmw":
-            score = sonolus_converters.mmws.load(score_path.open("r"))
+            with score_path.open("r") as fp:
+                score = sonolus_converters.mmws.load(fp)
             sonolus_converters.LevelData.next_sekai.export(
                 out_path_no_ext, score, as_compressed=True
             )
             return True
 
         if kind == "usc":
-            score = sonolus_converters.usc.load(score_path.open("r"))
+            with score_path.open("r") as fp:
+                score = sonolus_converters.usc.load(fp)
             sonolus_converters.LevelData.next_sekai.export(
                 out_path_no_ext, score, as_compressed=True
             )
@@ -102,21 +121,6 @@ def convert_score_to_cache(score_path: Path, out_path_no_ext: Path) -> bool:
         return False
 
 
-def is_valid_score_file(score_path: Path) -> bool:
-    """
-    Valid if it can be detected AND converted successfully.
-    (This intentionally performs conversion work.)
-    """
-    dummy_out = Path("levels_cache") / "__detect_tmp__" / "converted_score"
-    ok = convert_score_to_cache(score_path, dummy_out)
-    if ok:
-        try:
-            dummy_out.unlink(missing_ok=True)
-        except Exception:
-            pass
-    return ok
-
-
 # -----------------------------
 # Cache helpers
 # -----------------------------
@@ -127,7 +131,11 @@ def _ensure_cache_json(cache_dir: Path) -> Path:
     cache_path = cache_dir / "cache.json"
     if not cache_path.exists():
         cache_path.write_text(
-            json.dumps({"mtimes": {}, "folders": {}}, indent=2, sort_keys=True),
+            json.dumps(
+                {"mtimes": {}, "folders": {}, "folder_ids": {}},
+                indent=2,
+                sort_keys=True,
+            ),
             encoding="utf-8",
         )
     return cache_path
@@ -142,6 +150,7 @@ def _load_cache(cache_path: Path) -> Dict[str, Any]:
         data = {}
     data.setdefault("mtimes", {})
     data.setdefault("folders", {})
+    data.setdefault("folder_ids", {})  # actual folder name -> uuid string
     return data
 
 
@@ -195,7 +204,7 @@ def _keep_cached_or_pick_first(
     folder_dir: Path,
     cached_rel: Optional[str],
     *,
-    suffix: Optional[str] = None,
+    suffixes: Optional[set[str]] = None,
     predicate=None,
 ) -> Optional[Path]:
     """
@@ -209,8 +218,8 @@ def _keep_cached_or_pick_first(
             return cached_abs
 
     files = [p for p in folder_dir.iterdir() if p.is_file()]
-    if suffix is not None:
-        files = [p for p in files if p.suffix.lower() == suffix.lower()]
+    if suffixes is not None:
+        files = [p for p in files if p.suffix.lower() in suffixes]
     if predicate is not None:
         files = [p for p in files if predicate(p)]
 
@@ -272,11 +281,12 @@ def load_levels_directory(
     levels_cache_dir: str | Path = "levels_cache",
 ) -> Dict[str, Dict[str, Optional[str]]]:
     """
-    Returns hashes only, keyed by NORMALIZED folder name:
+    Returns hashes only, keyed by *actual folder name*, but also includes a stable UUID id
+    so any folder name is allowed (no normalization, no conflicts):
+
       {
-        "<normalized>": {
-          "normalized": "<normalized>",
-          "name": "<actual folder name>",
+        "<folder name>": {
+          "id": "<uuid>",
           "score": "<converted_score_hash or None>",
           "cover": "<cover_hash or None>",
           "background": "<background_hash or None>",
@@ -286,19 +296,18 @@ def load_levels_directory(
 
     Rules:
       - Sticky selection per folder: keep old chosen file until it is deleted.
-      - Score: do NOT add original score; generate `levels_cache/<normalized>/converted_score` (no ext)
+      - Score: do NOT add original score; convert to `levels_cache/<id>/converted_score` (no ext)
         and add THAT to repo.
-      - Cover: add original cover to repo. If cover updated, regenerate background at
-        `levels_cache/<normalized>/background.png` and add that too.
-      - Music: add original mp3 to repo.
+      - Cover: accept .png/.jpg/.jpeg; add original cover to repo. If cover updated,
+        regenerate background at `levels_cache/<id>/background.png` and add that too.
+      - Music: accept .mp3/.ogg; add original to repo.
       - Restart-safe: if repo._map doesn't contain a cached hash (or repo is empty),
         re-add/regenerate as needed even if folder mtimes didn't change.
-      - Duplicate normalized names: last one wins (overwrites), assumed not to happen.
+      - Score selection does NOT do a separate "is_valid" pass; conversion is attempted only
+        when needed and success determines validity.
     """
     levels_dir = Path(levels_dir)
     levels_cache_dir = Path(levels_cache_dir)
-    levels_dir.mkdir(parents=True, exist_ok=True)
-    levels_cache_dir.mkdir(parents=True, exist_ok=True)
 
     cache_path = _ensure_cache_json(levels_cache_dir)
     cache = _load_cache(cache_path)
@@ -306,42 +315,51 @@ def load_levels_directory(
     old_mtimes: Dict[str, float] = dict(cache.get("mtimes", {}))
     new_mtimes = _scan_mtimes(levels_dir)
 
-    # cache is now keyed by normalized name
+    # folders state keyed by UUID
     folders_cache: Dict[str, Any] = cache.get("folders", {})
-    out: Dict[str, Dict[str, Optional[str]]] = {}
+    # mapping from actual folder name -> uuid string
+    folder_ids: Dict[str, str] = cache.get("folder_ids", {})
 
+    out: Dict[str, Dict[str, Optional[str]]] = {}
     repo_empty = _repo_is_empty()
+
+    cover_suffixes = {".png", ".jpg", ".jpeg"}
+    music_suffixes = {".mp3", ".ogg"}
 
     for folder_dir in sorted(
         (p for p in levels_dir.iterdir() if p.is_dir()), key=lambda p: p.name.lower()
     ):
-        actual_name = folder_dir.name
-        norm_name = normalize_folder_name(actual_name)
+        folder_name = folder_dir.name
 
-        folder_state: Dict[str, Any] = folders_cache.get(norm_name, {})
-        folder_state["name"] = (
-            actual_name  # keep latest actual name for this normalized key
-        )
+        # assign stable UUID per folder name (persisted)
+        folder_id = folder_ids.get(folder_name)
+        if not folder_id:
+            folder_id = str(uuid.uuid4())
+            folder_ids[folder_name] = folder_id
+
+        folder_state: Dict[str, Any] = folders_cache.get(folder_id, {})
+        folder_state["name"] = folder_name  # for debugging / traceability
 
         # --- sticky selections in levels/<folder> ---
+        # Score: pick by cached rel or first file whose extension is in _SCORE_EXTS
         score_path = _keep_cached_or_pick_first(
             levels_dir,
             folder_dir,
             folder_state.get("score_rel"),
-            suffix=None,
-            predicate=is_valid_score_file,
+            suffixes=None,
+            predicate=_is_candidate_score_file,
         )
         cover_path = _keep_cached_or_pick_first(
             levels_dir,
             folder_dir,
             folder_state.get("cover_rel"),
-            suffix=".png",
+            suffixes=cover_suffixes,
         )
         music_path = _keep_cached_or_pick_first(
             levels_dir,
             folder_dir,
             folder_state.get("music_rel"),
-            suffix=".mp3",
+            suffixes=music_suffixes,
         )
 
         rel_score = (
@@ -375,8 +393,8 @@ def load_levels_directory(
         cover_updated = cover_selection_changed or cover_mtime_changed
         music_updated = music_selection_changed or music_mtime_changed
 
-        # generated output paths under levels_cache/<normalized>/
-        folder_cache_dir = levels_cache_dir / norm_name
+        # generated output paths under levels_cache/<id>/
+        folder_cache_dir = levels_cache_dir / folder_id
         converted_score_path = folder_cache_dir / "converted_score"  # no extension
         background_path = folder_cache_dir / "background.png"
 
@@ -421,7 +439,7 @@ def load_levels_directory(
             folder_state["cover_rel"] = None
             cover_hash = None
 
-        # --- BACKGROUND (generated from cover) ---
+        # --- BACKGROUND (generated from cover; accepts png/jpg/jpeg) ---
         if cover_path and cover_path.exists():
             if cover_updated:
                 folder_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -445,7 +463,7 @@ def load_levels_directory(
             folder_state["background_hash"] = None
             background_hash = None
 
-        # --- MUSIC (as-is) ---
+        # --- MUSIC (as-is; mp3/ogg) ---
         if music_path and music_path.exists():
             if music_updated or music_needs_warm or music_hash is None:
                 if music_hash:
@@ -460,12 +478,12 @@ def load_levels_directory(
             folder_state["music_rel"] = None
             music_hash = None
 
-        # --- SCORE (converted file only) ---
+        # --- SCORE (convert+hash in one step; no separate validity check) ---
         if score_path and score_path.exists():
             if score_updated:
                 ok = convert_score_to_cache(score_path, converted_score_path)
                 if not ok:
-                    # became invalid; keep previous sticky until they delete it
+                    # invalid; keep previous sticky choice until they delete it
                     score_updated = False
 
             if score_updated or score_needs_warm or converted_score_hash is None:
@@ -486,22 +504,22 @@ def load_levels_directory(
             folder_state["score_rel"] = None
             converted_score_hash = None
 
-        # save folder state under normalized key
-        folders_cache[norm_name] = folder_state
+        # save folder state under UUID
+        folders_cache[folder_id] = folder_state
 
-        # public output = normalized key + hashes + actual name
-        out[norm_name] = {
-            "normalized": norm_name,
-            "name": actual_name,
+        # public output = actual folder name key + stable id + hashes
+        out[folder_name] = {
+            "id": folder_id,
             "score": converted_score_hash,
             "cover": cover_hash,
             "background": background_hash,
             "music": music_hash,
         }
 
-    # persist new mtimes snapshot + folder states
+    # persist new mtimes snapshot + folder states + name->id map
     cache["mtimes"] = new_mtimes
     cache["folders"] = folders_cache
+    cache["folder_ids"] = folder_ids
     _save_cache(cache_path, cache)
 
     return out

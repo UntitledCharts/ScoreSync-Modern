@@ -12,13 +12,15 @@ async def main(request: Request, item_type: ItemType, item_name: str):
     level_data = await request.app.run_blocking(
         load_levels_directory, request.app.bgver
     )
-    found_level_data = next((d for k, d in level_data.items() if k == item_name), None)
+    found_level_data = next(
+        ((k, d) for k, d in level_data.items() if d["id"] == item_name), None
+    )
 
     if not found_level_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     data = {
-        "item": create_level_item(request, found_level_data, item_name),
+        "item": create_level_item(request, found_level_data[1], found_level_data[0]),
         "actions": [],
         "hasCommunity": False,
         "leaderboards": [],

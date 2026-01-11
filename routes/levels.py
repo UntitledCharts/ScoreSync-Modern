@@ -11,12 +11,10 @@ router = APIRouter()
 @router.get("/sonolus/{item_type}/info")
 async def main(request: Request, item_type: ItemType):
     levels = await request.app.run_blocking(load_levels_directory, request.app.bgver)
-    items = list(levels.values())
+    items = list(levels.items())
     page_items = items[:20]
 
-    converted_data = [
-        create_level_item(request, i, i["normalized"]) for i in page_items
-    ]
+    converted_data = [create_level_item(request, i[1], i[0]) for i in page_items]
     data = {
         "sections": [{"title": "#LEVEL", "itemType": "level", "items": converted_data}]
     }
@@ -30,7 +28,7 @@ async def main(request: Request, item_type: ItemType):
     page = int(request.query_params.get("page", 0))  # 0-based page
 
     levels = await request.app.run_blocking(load_levels_directory, request.app.bgver)
-    items = list(levels.values())
+    items = list(levels.items())
 
     total_items = len(items)
     page_count = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
@@ -39,9 +37,7 @@ async def main(request: Request, item_type: ItemType):
     end = start + ITEMS_PER_PAGE
     page_items = items[start:end]
 
-    converted_data = [
-        create_level_item(request, i, i["normalized"]) for i in page_items
-    ]
+    converted_data = [create_level_item(request, i[1], i[0]) for i in page_items]
 
     data = {"pageCount": page_count, "items": converted_data}
     return data

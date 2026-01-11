@@ -1,7 +1,7 @@
 from helpers.repository import repo
 
 
-def create_level_item(request, data, key):
+def create_level_item(request, data, folder_name):
     engine_data = {
         "name": "NextRUSH_P",
         "version": 13,
@@ -67,21 +67,21 @@ def create_level_item(request, data, key):
         "name": f"levelbg",
         "version": 2,
         "tags": [],
-        "title": data["name"],
-        "subtitle": f"{data['name']} Background",
+        "title": folder_name,
+        "subtitle": f"{folder_name} Background",
         "author": "ScoreSync Modern",
         "thumbnail": repo.get_srl(request.app.files["thumbnail"]),
         "data": engine_data["background"]["data"],
-        "image": repo.get_srl(data["background"]),
+        "image": repo.get_srl(data["background"]) or engine_data["background"]["image"],
         "configuration": engine_data["background"]["configuration"],
     }
 
     item_data = {
-        "name": key,
+        "name": data["id"],
         "version": 1,
         "tags": [],
         "rating": 0.0,
-        "title": data["name"],
+        "title": folder_name,
         "artists": "???",
         "author": "you",
         "useSkin": {"useDefault": True},
